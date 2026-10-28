@@ -8,7 +8,7 @@ defaults to an empty string and must be supplied via the environment.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 try:  # Load a local .env file when python-dotenv is installed.
     from dotenv import load_dotenv
@@ -16,6 +16,13 @@ try:  # Load a local .env file when python-dotenv is installed.
     load_dotenv()
 except Exception:  # pragma: no cover - dotenv is a declared dependency
     pass
+
+
+#: Default CORS origins for the React frontend dev server (Milestone 7).
+DEFAULT_FRONTEND_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 
 @dataclass
@@ -56,6 +63,13 @@ class Settings:
     search_provider: str = "duckduckgo"
     tavily_api_key: str = ""
     search_max_results: int = 5
+
+    # Frontend CORS (Milestone 7): the origins the React dev server is
+    # allowed to call this API from. Local development only — the
+    # backend is not exposed publicly by default (see ROADMAP M9).
+    frontend_origins: list[str] = field(
+        default_factory=lambda: list(DEFAULT_FRONTEND_ORIGINS)
+    )
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -98,6 +112,13 @@ class Settings:
             search_max_results=int(
                 os.environ.get("SEARCH_MAX_RESULTS", cls.search_max_results)
             ),
+            frontend_origins=[
+                origin.strip()
+                for origin in os.environ.get(
+                    "FRONTEND_ORIGINS", ",".join(DEFAULT_FRONTEND_ORIGINS)
+                ).split(",")
+                if origin.strip()
+            ],
         )
 
 

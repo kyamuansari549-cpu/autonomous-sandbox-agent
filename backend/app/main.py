@@ -2,8 +2,9 @@
 
 Wires together the health endpoint and the task routes
 (:mod:`app.api.tasks`) backed by a :class:`TaskService` built from
-settings. Web search and the frontend arrive in later milestones (see
-docs/ROADMAP.md).
+settings. CORS is enabled for the React frontend's dev origins
+(``settings.frontend_origins``, Milestone 7) so the browser app can
+call this API; no other origins are allowed.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.tasks import router as tasks_router
 from app.config import Settings, get_settings
@@ -30,6 +32,12 @@ def create_app(
     """
     settings = settings or get_settings()
     app = FastAPI(title=settings.app_name)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.frontend_origins,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.state.task_service = task_service or TaskService(settings)
 
     @app.get("/health", response_model=HealthResponse)

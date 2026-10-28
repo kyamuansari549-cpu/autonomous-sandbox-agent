@@ -94,6 +94,28 @@ them**.
    transport only — no Tavily key is available in this environment.
 7. **Milestone 7 — Frontend:** React dashboard with real task progress,
    logs, files, test results, cancellation and approval controls.
+   **Status: DONE — build verified in this environment.** The backend
+   gained CORS for the Vite dev origins (`FRONTEND_ORIGINS` setting,
+   default `http://localhost:5173` + `http://127.0.0.1:5173`; 3 new
+   tests, full backend suite 109 passed, and the allow-origin header
+   confirmed against a live uvicorn server). The frontend
+   (`frontend/`, Vite 6 + React 18 + TypeScript, no UI kit or state
+   library) talks to the exact task API shipped in Milestone 5:
+   submit form (the backend's real error — e.g. the 503 "LLM not
+   configured" detail — is shown verbatim), task list, detail panel
+   with status pill, result summary, error box, and an ordered
+   tool-call timeline, plus a Cancel button while a task is
+   queued/running. Live updates are honest polling — `GET
+   /tasks/{id}` every 2 seconds while non-terminal, stopping at
+   terminal states; an unreachable backend shows a plain banner, never
+   invented state. `npm install` + `npm run build` verified for real
+   (tsc clean; dist JS 150.14 kB / 48.49 kB gzip), and `vite preview`
+   served the built page (title + bundle confirmed over HTTP) while a
+   live backend answered `/health`, `GET /tasks` and the CORS check.
+   One honest scoping note: the API records `tool_calls` as tool
+   **names only**, so the dashboard shows the timeline of names and
+   has no "files changed" view — deriving one would fabricate data
+   the API never returned (see `frontend/README.md`).
 8. **Milestone 8 — Reliability and Security:** full test suite, permission
    and Docker review, malformed-input and malicious-path testing,
    documented residual limitations.

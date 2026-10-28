@@ -11,13 +11,18 @@ file contents.
 
 ## Status
 
-**Milestone 1 (Foundation) is complete** — project structure, FastAPI
-backend with a health endpoint, environment-based configuration, and a
-passing automated test suite. Everything else (workspace tools, Docker
-sandbox, Groq agent loop, web search, React frontend) is planned work;
-see [docs/ROADMAP.md](docs/ROADMAP.md).
+**Milestones 1–7 are built** — FastAPI backend with confined
+workspace tools, a hardened Docker sandbox runner, the Groq agent
+loop, a SQLite-backed task service with a task API, a live web-search
+tool, and the React frontend. Backend test suite: **109 passed**.
+Two verifications remain pending their hosts, honestly: executing
+code inside a real Docker container (needs a Docker host) and a live
+Groq model call (needs a valid `GROQ_API_KEY`). Per-milestone detail
+and evidence: [docs/ROADMAP.md](docs/ROADMAP.md).
 
-## Quick start (Milestone 1)
+## Quick start
+
+Backend:
 
 ```powershell
 cd backend
@@ -40,6 +45,15 @@ Run the tests:
 ```powershell
 cd backend
 pytest -v
+```
+
+Frontend (backend must be running on port 8000 first):
+
+```bash
+cd frontend
+npm install
+npm run dev
+# open http://localhost:5173 — see frontend/README.md
 ```
 
 ## Configuration

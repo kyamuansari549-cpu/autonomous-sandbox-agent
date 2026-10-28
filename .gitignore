@@ -9,6 +9,7 @@ __pycache__/
 
 # Node (frontend, Milestone 7)
 node_modules/
+dist/
 
 # Task service database (Milestone 5) — runtime state, not source
 backend/data/
