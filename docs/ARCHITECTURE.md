@@ -35,3 +35,22 @@ sandbox/    Dockerfile for the execution image (Milestone 3)
 workspace/  the only folder the agent's file tools may touch (Milestone 2)
 docs/       architecture, security, roadmap
 ```
+
+## The agent loop's controls (Milestone 4)
+
+The loop in `backend/app/agent/loop.py` is deliberately *controlled*,
+not free-running. Every tool request the model makes is validated by
+the backend dispatcher (`backend/app/tools/definitions.py`) — the tool
+name must exist in a fixed registry and the arguments must match the
+workspace tools' signatures — before anything executes, and the real
+result, including failures such as unknown tools, malformed arguments,
+or path-traversal refusals, is fed back to the model verbatim so its
+final summary can only rest on what actually happened. The loop stops
+at a backend-enforced maximum number of iterations
+(`settings.max_iterations`) and reports that stop honestly instead of
+claiming completion, honours a cancellation event checked before every
+model round, and retries only rate limits (bounded, with backoff)
+while failing fast on authentication errors and surfacing any other
+API failure with its real message. The system prompt repeats the same
+contract to the model: report only what the tools returned, and
+describe failures as failures.

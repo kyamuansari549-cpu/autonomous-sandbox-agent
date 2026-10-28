@@ -27,6 +27,22 @@ them**.
 4. **Milestone 4 — Groq Integration:** OpenAI-compatible client, model
    availability check, tool-calling loop, rate-limit and error handling,
    max-iteration enforcement.
+   **Status: CODE COMPLETE — live model call pending a valid
+   GROQ_API_KEY in .env.** The Groq client factory
+   (`backend/app/agent/llm_client.py`, refuses to build without a key
+   and model), the six workspace-tool schemas and validating dispatcher
+   (`backend/app/tools/definitions.py`), and the controlled agent loop
+   (`backend/app/agent/loop.py` — bounded iterations, cancellation,
+   rate-limit retries with backoff, fail-fast on authentication errors,
+   real tool failures fed back to the model) are implemented and
+   verified entirely against a scripted fake client: 15 new tests, full
+   suite 62 passed, including a real file created in a temporary
+   workspace via a model-requested tool call and a path-traversal
+   attempt refused and reported. NOT verified: any live Groq call — no
+   valid API key is available in the build environment (previous keys
+   returned 401), so the first live verification must happen with a
+   valid `GROQ_API_KEY` and `GROQ_MODEL` (recommended:
+   `llama-3.3-70b-versatile`) in `backend/.env` on the user's machine.
 5. **Milestone 5 — Autonomous Coding:** agent connected to workspace,
    execution and test tools; one complete small coding task verified end
    to end.
