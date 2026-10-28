@@ -32,6 +32,11 @@ class Settings:
     task_timeout_seconds: int = 600
     max_output_bytes: int = 65536
 
+    # Workspace confinement limits (Milestone 2, enforced by app.workspace).
+    max_file_bytes: int = 1_000_000
+    max_list_entries: int = 500
+    max_search_matches: int = 100
+
     @classmethod
     def from_env(cls) -> "Settings":
         """Build settings from environment variables, falling back to defaults."""
@@ -46,6 +51,13 @@ class Settings:
             ),
             max_output_bytes=int(
                 os.environ.get("MAX_OUTPUT_BYTES", cls.max_output_bytes)
+            ),
+            max_file_bytes=int(os.environ.get("MAX_FILE_BYTES", cls.max_file_bytes)),
+            max_list_entries=int(
+                os.environ.get("MAX_LIST_ENTRIES", cls.max_list_entries)
+            ),
+            max_search_matches=int(
+                os.environ.get("MAX_SEARCH_MATCHES", cls.max_search_matches)
             ),
         )
 

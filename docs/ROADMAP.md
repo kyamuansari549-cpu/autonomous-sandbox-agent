@@ -10,6 +10,8 @@ them**.
    `GET /health` check against a running uvicorn server.
 2. **Milestone 2 — Workspace:** confined file operations, path validation,
    file-size limits, workspace security tests.
+   **Status: DONE** — verified by a real test run (30 passed, including 27
+   workspace tests covering traversal, symlink escapes, and size limits).
 3. **Milestone 3 — Docker Sandbox:** execution image, output/exit capture,
    timeouts, resource limits, cleanup, isolation tests.
 4. **Milestone 4 — Groq Integration:** OpenAI-compatible client, model

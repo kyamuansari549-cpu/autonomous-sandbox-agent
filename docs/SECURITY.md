@@ -6,10 +6,16 @@ decides what actually happens.
 
 ## Safeguards planned
 
-- **Workspace confinement (Milestone 2):** file tools operate only inside
-  the dedicated `workspace/` folder. Paths are normalized and validated;
-  traversal (`..`) and symlink escapes are rejected. File-size and
-  file-count limits apply.
+- **Workspace confinement (Milestone 2 — implemented):** all file tools
+  in `app/workspace/` operate only inside the dedicated `workspace/`
+  folder and pass through a single resolver. Backslashes are normalized,
+  absolute and drive-letter paths are rejected, and the fully resolved
+  path (symlinks included) must stay inside the root — so `..` traversal
+  and symlink escapes are both blocked. Reads and writes are capped by
+  `MAX_FILE_BYTES` (default 1 MB), directory listings and search results
+  are count-capped, writes are atomic (temp file + rename), and
+  non-UTF-8 (binary) content is refused on read. Covered by 27 tests in
+  `backend/tests/test_workspace.py`.
 - **Sandboxed execution (Milestone 3):** generated code runs in Docker as
   a non-root user — never privileged, no Docker socket mounted, no host
   filesystem beyond the single task workspace, networking disabled by
