@@ -50,6 +50,13 @@ class Settings:
     sandbox_pids_limit: int = 64
     sandbox_timeout_seconds: int = 30
 
+    # Web search (Milestone 6, used by app.search). The provider is
+    # selected by name; an unknown or unconfigured provider is an
+    # honest error at search time, never a fake result.
+    search_provider: str = "duckduckgo"
+    tavily_api_key: str = ""
+    search_max_results: int = 5
+
     @classmethod
     def from_env(cls) -> "Settings":
         """Build settings from environment variables, falling back to defaults."""
@@ -83,6 +90,13 @@ class Settings:
                 os.environ.get(
                     "SANDBOX_TIMEOUT_SECONDS", cls.sandbox_timeout_seconds
                 )
+            ),
+            search_provider=os.environ.get(
+                "SEARCH_PROVIDER", cls.search_provider
+            ),
+            tavily_api_key=os.environ.get("TAVILY_API_KEY", ""),
+            search_max_results=int(
+                os.environ.get("SEARCH_MAX_RESULTS", cls.search_max_results)
             ),
         )
 

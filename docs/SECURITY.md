@@ -48,8 +48,13 @@ decides what actually happens.
   require explicit user approval or are blocked outright.
 - **No arbitrary shell:** the model cannot supply raw shell commands or
   Docker flags. Only fixed, validated operations exist.
-- **Web content is untrusted data:** search results are information, never
-  instructions (Milestone 6).
+- **Web content is untrusted data (Milestone 6 — implemented):** web
+  search results are treated as untrusted external data — information
+  to cite, never instructions to follow. Every `web_search` result is
+  framed with an explicit "untrusted external data" header so the
+  model and the logs can never mistake page content for commands, and
+  provider failures surface with their real reason instead of
+  fabricated results.
 - **Secrets hygiene:** keys live only in a local `.env` excluded from Git;
   keys are never logged.
 
@@ -86,5 +91,10 @@ fails honestly with that error instead of fabricating a result.
   authentication and isolation design.
 - Groq's free tier has rate limits; the backend must handle 429s honestly
   rather than pretending work happened.
+- DuckDuckGo search (via `ddgs`) is a best-effort public endpoint with
+  no API key and no SLA: it can time out or rate-limit (observed once
+  during Milestone 6 verification; an immediate retry succeeded). The
+  backend reports that failure honestly rather than inventing results;
+  Tavily is available as a key-based alternative provider.
 - Approval prompts only help if the user actually reads them. Dangerous
   operations stay blocked by policy even if a user would approve them.

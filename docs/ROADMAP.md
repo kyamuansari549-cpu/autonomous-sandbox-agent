@@ -70,6 +70,28 @@ them**.
    model call — both still pending their hosts, as in Milestones 3–4.
 6. **Milestone 6 — Web Search:** separately configured search provider,
    real cited results, honest failure handling.
+   **Status: DONE — verified live.** The `web_search` tool delegates to
+   a provider selected by `SEARCH_PROVIDER` (`backend/app/search/
+   provider.py`): DuckDuckGo via the `ddgs` package by default (no API
+   key), Tavily optionally (a real `api.tavily.com` call; selected
+   without `TAVILY_API_KEY` it raises an honest not-configured error).
+   Every provider failure is wrapped in `SearchUnavailableError` with
+   the real reason and surfaces to the model as a tool error — never
+   as a fake or empty success; an actually-empty result set is reported
+   as "no results". Results are framed with an explicit header marking
+   them as untrusted external data (information, never instructions).
+   Verification: 16 new tests (fake-provider dispatcher behaviour,
+   ddgs dict mapping via a stubbed `DDGS`, Tavily request/response
+   mapping via a mocked httpx transport, missing-key and
+   unknown-provider errors, config defaults), full suite 106 passed —
+   plus a **live smoke check**: the real `DuckDuckGoProvider` searched
+   "Groq API tool calling" and returned 5 real results (first: "Tool
+   Use Overview - GroqDocs", console.groq.com). Note: a first live
+   attempt timed out when ddgs routed to a slow backend; the immediate
+   retry succeeded — DuckDuckGo's public endpoints are best-effort and
+   can rate-limit or time out, which is exactly what the honest-error
+   path exists for. Tavily's live path is unit-tested with a mocked
+   transport only — no Tavily key is available in this environment.
 7. **Milestone 7 — Frontend:** React dashboard with real task progress,
    logs, files, test results, cancellation and approval controls.
 8. **Milestone 8 — Reliability and Security:** full test suite, permission
