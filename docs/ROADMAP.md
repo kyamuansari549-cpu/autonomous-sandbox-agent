@@ -14,6 +14,16 @@ them**.
    workspace tests covering traversal, symlink escapes, and size limits).
 3. **Milestone 3 — Docker Sandbox:** execution image, output/exit capture,
    timeouts, resource limits, cleanup, isolation tests.
+   **Status: CODE COMPLETE — live verification pending Docker host.**
+   The hardened image (`sandbox/Dockerfile`, non-root uid 10001), the
+   fixed-policy runner (`backend/app/sandbox/runner.py`), sandbox
+   settings, and 17 daemon-free policy tests are implemented and passing
+   (full suite: 47 passed). Live container execution is **not** verified:
+   the build environment has no Docker daemon, and the runner honestly
+   raises `SandboxUnavailableError` there. Remaining verification — run
+   a harmless program in a real container and confirm output capture,
+   non-zero exit codes, timeout kill, and network isolation — must
+   happen on a Docker host (the user's laptop with Docker Desktop).
 4. **Milestone 4 — Groq Integration:** OpenAI-compatible client, model
    availability check, tool-calling loop, rate-limit and error handling,
    max-iteration enforcement.

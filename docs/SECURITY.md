@@ -16,12 +16,26 @@ decides what actually happens.
   are count-capped, writes are atomic (temp file + rename), and
   non-UTF-8 (binary) content is refused on read. Covered by 27 tests in
   `backend/tests/test_workspace.py`.
-- **Sandboxed execution (Milestone 3):** generated code runs in Docker as
-  a non-root user — never privileged, no Docker socket mounted, no host
-  filesystem beyond the single task workspace, networking disabled by
-  default, CPU/memory/process/time limits, dropped capabilities,
-  `no-new-privileges`, output-size caps, and guaranteed container cleanup
-  after timeouts.
+- **Sandboxed execution (Milestone 3 — implemented in code):** generated
+  code runs in Docker via one fixed argument list built by
+  `app/sandbox/runner.py` — the caller chooses only which workspace
+  script runs, never flags, images, or mounts. The image
+  (`sandbox/Dockerfile`) is stock Python 3.12-slim running as a non-root
+  user (uid 10001). Every run gets: `--network none`, `--memory` /
+  `--cpus` / `--pids-limit` limits from backend settings (defaults
+  256 MB, 0.5 CPU, 64 PIDs), `--cap-drop ALL`,
+  `--security-opt no-new-privileges`, a read-only root filesystem with
+  a 64 MB tmpfs at `/tmp`, the workspace as the *only* bind mount
+  (at `/work`), and `--rm` cleanup. The container is never privileged,
+  the Docker socket is never mounted, and **no environment variables are
+  passed in at all** (no `-e` flags), so backend secrets cannot leak
+  into executed code. Script paths are validated through the Milestone 2
+  workspace resolver before Docker is invoked, stdout/stderr are
+  truncated to `MAX_OUTPUT_BYTES`, and a wall-clock timeout
+  (`SANDBOX_TIMEOUT_SECONDS`, default 30) terminates the run. Covered
+  by 17 daemon-free policy tests in `backend/tests/test_sandbox.py`
+  (argv safeguards, forbidden flags, path rejection, timeout,
+  truncation, missing-Docker failure).
 - **No secrets in the sandbox:** API keys and environment credentials are
   never passed into execution containers.
 - **Controlled agent loop (Milestone 4):** maximum iterations, task
@@ -39,11 +53,34 @@ decides what actually happens.
 - **Secrets hygiene:** keys live only in a local `.env` excluded from Git;
   keys are never logged.
 
+## Sandbox verification status
+
+**Live container execution is NOT yet verified: the build environment
+has no Docker daemon. Verification pending on a Docker host (user's
+laptop with Docker Desktop).** What *is* verified here: the runner's
+policy (exact argv), path validation, output truncation, timeout
+handling, and the honest `SandboxUnavailableError` raised when the
+`docker` executable is missing — all via injected fake runners, never
+by pretending a container ran. On this machine, calling the runner
+fails honestly with that error instead of fabricating a result.
+
 ## Honest limitations
 
 - Docker is a strong isolation layer, **not a perfect one**. Container
   escapes and kernel vulnerabilities exist; this design reduces risk, it
   does not eliminate it.
+- The sandbox image ships **stock Python only** — no third-party
+  packages and no package installation inside the sandbox (networking
+  is disabled). Code needing extra libraries cannot run yet; that is a
+  deliberate restriction, not an oversight.
+- Timeout cleanup relies on terminating the `docker` CLI process plus
+  `--rm`. If a CLI were killed in a way that left its container running,
+  the orphaned container would still be bounded by the same CPU/memory/
+  PID limits — but this behaviour has not yet been exercised on a real
+  daemon (see verification status above) and must be re-checked there.
+- Daemon-free policy tests prove the backend *asks* Docker for the right
+  restrictions; they cannot prove the daemon *enforces* them. Only the
+  pending live run on a Docker host can do that.
 - This agent is built for **local, single-user use by its owner**. It must
   not be exposed to untrusted public users without an additional
   authentication and isolation design.

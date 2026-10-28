@@ -37,6 +37,15 @@ class Settings:
     max_list_entries: int = 500
     max_search_matches: int = 100
 
+    # Docker sandbox policy (Milestone 3, enforced by app.sandbox.runner).
+    # These are backend-side limits: the model can never override them,
+    # and the runner turns them into fixed `docker run` flags.
+    sandbox_image: str = "autonomous-sandbox-agent:latest"
+    sandbox_memory: str = "256m"
+    sandbox_cpus: str = "0.5"
+    sandbox_pids_limit: int = 64
+    sandbox_timeout_seconds: int = 30
+
     @classmethod
     def from_env(cls) -> "Settings":
         """Build settings from environment variables, falling back to defaults."""
@@ -58,6 +67,17 @@ class Settings:
             ),
             max_search_matches=int(
                 os.environ.get("MAX_SEARCH_MATCHES", cls.max_search_matches)
+            ),
+            sandbox_image=os.environ.get("SANDBOX_IMAGE", cls.sandbox_image),
+            sandbox_memory=os.environ.get("SANDBOX_MEMORY", cls.sandbox_memory),
+            sandbox_cpus=os.environ.get("SANDBOX_CPUS", cls.sandbox_cpus),
+            sandbox_pids_limit=int(
+                os.environ.get("SANDBOX_PIDS_LIMIT", cls.sandbox_pids_limit)
+            ),
+            sandbox_timeout_seconds=int(
+                os.environ.get(
+                    "SANDBOX_TIMEOUT_SECONDS", cls.sandbox_timeout_seconds
+                )
             ),
         )
 

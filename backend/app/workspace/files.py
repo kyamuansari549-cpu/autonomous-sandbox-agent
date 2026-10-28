@@ -108,6 +108,15 @@ class Workspace:
         """Return ``path`` relative to the root, POSIX-style."""
         return path.relative_to(self._root).as_posix()
 
+    def resolve_path(self, relative_path: str) -> Path:
+        """Resolve ``relative_path`` inside the root or raise WorkspaceError.
+
+        Public wrapper around the single internal resolver, for callers
+        outside this module (e.g. the sandbox runner) that need the same
+        containment guarantee for a path they are about to act on.
+        """
+        return self._resolve(relative_path)
+
     # ------------------------------------------------------------------
     # Read operations.
     # ------------------------------------------------------------------
