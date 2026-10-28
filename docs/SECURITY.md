@@ -125,6 +125,27 @@ decides what actually happens.
     environment with audit-endpoint access before relying on the
     frontend dependency set.
 
+## Deployment: the Docker-socket tradeoff (Milestone 9)
+
+The compose stack (`docker-compose.yml`) mounts the host's
+`/var/run/docker.sock` into the backend container so the backend can
+start sandbox containers. Be clear about what that means: **access
+to the Docker socket is effectively root-level access to the host.**
+Any process that can talk to the socket can start a privileged
+container and escape. This is accepted here for exactly one context —
+the project owner running the whole stack locally on their own
+machine, where the backend is already trusted with that machine. It
+must **not** be carried into any shared, hosted, or public deployment;
+such a deployment needs a different execution design (for example a
+separate, tightly scoped execution service or a rootless/remote
+Docker host with its own credentials), which this project does not
+implement. Two related notes: the compose file also stores the task
+workspace in a named volume, which the host daemon cannot see at the
+path the backend passes it — sandboxed execution under compose needs
+the bind-mount arrangement described in `docs/DEPLOYMENT.md`; and the
+compose ports are published on the host, so treat anything that can
+reach the host's ports 8000/5173 as able to use this agent.
+
 ## Sandbox verification status
 
 **Live container execution is NOT yet verified: the build environment

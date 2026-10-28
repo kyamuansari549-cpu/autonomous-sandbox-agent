@@ -1,12 +1,76 @@
-# TODO (Milestone 9 — Local Deployment):
-# Real services are defined here at deployment time. Nothing is wired up
-# yet on purpose: Milestone 1 is foundation only, and no service should be
-# exposed before the security review in Milestone 8.
+# Local deployment for the autonomous sandbox agent (Milestone 9).
 #
-# Planned (all commented out until Milestone 9):
-# services:
-#   backend:
-#     build: ./backend
-#     # ports are bound to localhost only when this is enabled
-#     # ports:
-#     #   - "127.0.0.1:8000:8000"
+# LOCAL DEVELOPMENT ONLY. This stack is for the project owner running
+# everything on their own machine. Nothing here is hardened for public
+# exposure — see docs/DEPLOYMENT.md and docs/SECURITY.md.
+#
+# Before starting: create the env file at the REPOSITORY ROOT (this is
+# not the same file as backend/.env used by a manual run):
+#
+#   cp backend/.env.example .env      # then fill in GROQ_API_KEY etc.
+#
+# Start:        docker compose up --build
+# Sandbox image (built on demand only, via the "tools" profile):
+#               docker compose --profile tools build sandbox-image
+#
+# Honest limitation: sandboxed code execution from inside the backend
+# container needs the Docker host to see the task workspace at the
+# same path the backend sees (the runner passes the workspace path to
+# the host daemon). A named volume does not provide that, so under
+# this compose file the API, tasks and workspace tools work, but
+# run_python_file/run_tests will not find the files on the host.
+# docs/DEPLOYMENT.md explains the bind-mount alternative that fixes
+# this on a Docker host.
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Runtime state lives on the named volume below, not in the
+      # repo layout the defaults assume.
+      WORKSPACE_ROOT: /data/workspace
+      TASKS_DB_PATH: /data/tasks.db
+    volumes:
+      - app-data:/data
+      # LOCAL DEVELOPMENT ONLY: mounting the Docker socket lets the
+      # backend start sandbox containers; this is effectively
+      # host-level access. See docs/SECURITY.md before using anywhere
+      # else.
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Note: on some hosts the backend user (uid 10001) also needs the
+    # host's "docker" group to open the socket; if sandbox calls fail
+    # with a permission error, add:
+    #   group_add:
+    #     - "<host docker group id>"   # from: getent group docker
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Vite bakes this into the static bundle at build time; the
+        # browser calls the backend through the host's port 8000.
+        VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "5173:5173"
+    environment:
+      # Kept for parity with frontend/.env.example; the value that
+      # takes effect for the built bundle is the build arg above.
+      VITE_API_BASE_URL: http://localhost:8000
+    depends_on:
+      - backend
+
+  # The sandbox execution image (Milestone 3). It is never run as a
+  # service — the backend starts it per execution via the Docker
+  # socket — so it only exists here as an on-demand build target.
+  # The image name matches the backend's SANDBOX_IMAGE default.
+  sandbox-image:
+    build: ./sandbox
+    image: autonomous-sandbox-agent:latest
+    profiles: ["tools"]
+
+volumes:
+  app-data:

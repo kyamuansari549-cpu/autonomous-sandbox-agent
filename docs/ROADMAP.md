@@ -146,3 +146,52 @@ them**.
 9. **Milestone 9 — Local Deployment:** repeatable local startup,
    environment setup docs, troubleshooting guide, final verification
    checklist. Not exposed publicly by default.
+   **Status: DONE — with the compose stack's live run honestly
+   pending a Docker host.** Deployment artifacts: `backend/Dockerfile`
+   and `frontend/Dockerfile` (both non-root, lockfile-exact installs),
+   `.dockerignore` files, and a real root `docker-compose.yml`
+   (backend + frontend + an on-demand `sandbox-image` build target
+   behind the `tools` profile; runtime state on a named volume via
+   the new `WORKSPACE_ROOT` setting alongside `TASKS_DB_PATH`). The
+   compose file was validated **structurally** (PyYAML parse plus
+   assertions on services, ports, env, and volumes) — it has **not**
+   been run, because this environment has no Docker daemon; the
+   Docker-socket tradeoff and the named-volume path caveat for
+   sandboxed execution are documented in `docs/DEPLOYMENT.md` and
+   `docs/SECURITY.md`. A **fresh-checkout verification** was run for
+   real: the repository was cloned from its committed state into a
+   clean directory, and there the backend venv install + full test
+   suite (**118 passed**), a live uvicorn `/health` check, and the
+   frontend `npm ci` + production build (bundle sizes matching the
+   main checkout) all passed without any fix being needed. A secret
+   scan over all tracked files found no real credentials (only
+   obviously fake test fixtures and sentinels). `docs/DEPLOYMENT.md`
+   carries the manual + compose runbooks, a troubleshooting table,
+   and the exact commands for the two pending live verifications.
+
+## Project status (after Milestone 9)
+
+All nine milestones are complete as code, tests, and documentation.
+What is verified, and where:
+
+- **Verified in this build environment:** the backend (118 tests,
+  live `/health`), workspace confinement, the agent loop's full
+  behaviour against a scripted fake client (including an end-to-end
+  bug-fix task with real pytest output), the task service and API,
+  live DuckDuckGo web search, the frontend production build and its
+  live pairing with the backend, dependency audit for Python (clean
+  after fixes), and a from-scratch clone-and-run of the whole repo.
+- **Pending a Docker host (user's laptop):** live sandbox container
+  execution (output capture, non-zero exits, timeout kill, network
+  isolation) and the first `docker compose up` of the deployment
+  stack. Exact commands: `docs/DEPLOYMENT.md` → "Pending live
+  verifications" #1.
+- **Pending a valid Groq key:** the first live model call and a fully
+  live end-to-end task. Exact commands: `docs/DEPLOYMENT.md` →
+  "Pending live verifications" #2.
+- **Open minor item:** `npm audit` for the frontend — blocked in
+  this environment by the registry proxy (HTTP 403), recorded as
+  unmeasured, not clean.
+
+Nothing in this list is silently implied: a component is only called
+verified where a real run produced the evidence.

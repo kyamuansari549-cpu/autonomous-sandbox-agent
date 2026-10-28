@@ -49,3 +49,23 @@ def test_settings_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.max_iterations == 7
     assert settings.sandbox_memory == "512m"
     assert settings.sandbox_pids_limit == 16
+
+
+def test_workspace_root_override(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    # Milestone 9: WORKSPACE_ROOT redirects the confined workspace
+    # (used by the deployment container); unset it stays empty and the
+    # Workspace falls back to the repository workspace/ directory.
+    monkeypatch.delenv("WORKSPACE_ROOT", raising=False)
+    assert Settings.from_env().workspace_root == ""
+
+    target = tmp_path / "deploy-workspace"
+    monkeypatch.setenv("WORKSPACE_ROOT", str(target))
+    settings = Settings.from_env()
+    assert settings.workspace_root == str(target)
+
+    from app.workspace import Workspace
+
+    ws = Workspace(settings=settings)
+    assert ws.root == target.resolve()

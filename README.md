@@ -9,16 +9,41 @@ tests, and reports what was actually verified.
 contains. The agent never fabricates terminal output, test results, or
 file contents.
 
+## Architecture
+
+- **Backend** (FastAPI, `backend/`): a controlled agent loop calls a
+  Groq model (OpenAI-compatible API) and validates every tool call
+  server-side before dispatch.
+- **Tools**: confined workspace file operations, sandboxed execution
+  (`python` file / `pytest` only, fixed allowlist), read-only git,
+  and web search framed as untrusted data.
+- **Sandbox** (`sandbox/`): a minimal non-root Python image; the
+  backend runs it with no network, dropped capabilities, and fixed
+  CPU/memory/PID limits the model cannot change.
+- **Task service**: SQLite-backed task records, bounded concurrency,
+  cancellation, honest status — served over a small REST API.
+- **Frontend** (`frontend/`): a Vite + React dashboard that submits
+  tasks and polls the real API for status, summaries, and tool-call
+  timelines.
+
 ## Status
 
-**Milestones 1–7 are built** — FastAPI backend with confined
-workspace tools, a hardened Docker sandbox runner, the Groq agent
-loop, a SQLite-backed task service with a task API, a live web-search
-tool, and the React frontend. Backend test suite: **109 passed**.
-Two verifications remain pending their hosts, honestly: executing
-code inside a real Docker container (needs a Docker host) and a live
-Groq model call (needs a valid `GROQ_API_KEY`). Per-milestone detail
-and evidence: [docs/ROADMAP.md](docs/ROADMAP.md).
+**All nine milestones are built.** Backend test suite: **118 passed**;
+frontend production build verified. A fresh checkout was cloned and
+re-verified end to end (tests, `/health`, frontend build) for
+Milestone 9. Two verifications remain pending their hosts, honestly:
+
+| Component | Verified | Pending |
+|---|---|---|
+| Backend API, task service, agent loop logic | This build env (118 tests, live `/health`) | — |
+| Workspace confinement & tool policy | This build env (traversal/symlink/allowlist tests) | — |
+| Web search (DuckDuckGo) | **Live** in this build env (real results) | Tavily live (no key here) |
+| Frontend build + serving | This build env (`npm run build`, preview smoke) | `npm audit` (registry proxy blocked it) |
+| Docker sandbox execution | Policy/argv tests only (fake runners) | **Live run on a Docker host** |
+| Groq model call | Fake-client tests only (full loop behaviour) | **Live call with a valid `GROQ_API_KEY`** |
+| Docker Compose stack | YAML structure validated | First `docker compose up` on a Docker host |
+
+Per-milestone detail and evidence: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Quick start
 
@@ -56,6 +81,16 @@ npm run dev
 # open http://localhost:5173 — see frontend/README.md
 ```
 
+Or run the whole stack with Docker Compose (see
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) first — it explains the
+root `.env` file and the Docker-socket tradeoff):
+
+```bash
+cp backend/.env.example .env    # repository root; fill in your key
+docker compose --profile tools build sandbox-image
+docker compose up --build
+```
+
 ## Configuration
 
 Copy `backend/.env.example` to `backend/.env` and fill in your own values.
@@ -67,4 +102,5 @@ never paste it into chat.
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the four parts fit together
 - [docs/SECURITY.md](docs/SECURITY.md) — safeguards and honest limitations
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — local run (manual + compose), troubleshooting, pending live verifications
 - [docs/ROADMAP.md](docs/ROADMAP.md) — the nine milestones

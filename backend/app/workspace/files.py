@@ -76,7 +76,14 @@ class Workspace:
         settings: Optional[Settings] = None,
     ) -> None:
         self._settings = settings or get_settings()
-        raw_root = Path(root) if root is not None else default_root()
+        if root is not None:
+            raw_root = Path(root)
+        elif self._settings.workspace_root:
+            # Deployment override (Milestone 9): WORKSPACE_ROOT points
+            # the confined workspace at e.g. a container volume.
+            raw_root = Path(self._settings.workspace_root)
+        else:
+            raw_root = default_root()
         raw_root.mkdir(parents=True, exist_ok=True)
         # Resolve once so containment checks compare canonical paths.
         self._root = raw_root.resolve()

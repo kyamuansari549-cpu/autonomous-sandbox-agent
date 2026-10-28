@@ -48,6 +48,14 @@ class Settings:
     # Relative paths are resolved against the backend/ directory.
     tasks_db_path: str = "data/tasks.db"
 
+    # Agent workspace root (Milestone 9, used by app.workspace).
+    # Empty means "the repository's workspace/ directory" (see
+    # app.workspace.files.default_root). Set WORKSPACE_ROOT when the
+    # backend runs somewhere the repo layout does not apply — e.g.
+    # inside the deployment container, where compose points it at a
+    # named volume (/data/workspace).
+    workspace_root: str = ""
+
     # Task concurrency (Milestone 8): at most this many tasks run at
     # once; further tasks stay "queued" and start in creation order
     # as slots free up. Values below 1 are clamped to 1 by the service.
@@ -103,6 +111,7 @@ class Settings:
                 os.environ.get("MAX_SEARCH_MATCHES", cls.max_search_matches)
             ),
             tasks_db_path=os.environ.get("TASKS_DB_PATH", cls.tasks_db_path),
+            workspace_root=os.environ.get("WORKSPACE_ROOT", cls.workspace_root),
             max_concurrent_tasks=int(
                 os.environ.get(
                     "MAX_CONCURRENT_TASKS", cls.max_concurrent_tasks

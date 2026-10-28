@@ -1,0 +1,10 @@
+# Keep the build context (and image) free of local state.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+tests/
+.env
+Dockerfile
+.dockerignore
