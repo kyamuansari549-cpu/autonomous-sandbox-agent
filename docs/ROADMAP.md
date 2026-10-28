@@ -119,6 +119,30 @@ them**.
 8. **Milestone 8 — Reliability and Security:** full test suite, permission
    and Docker review, malformed-input and malicious-path testing,
    documented residual limitations.
+   **Status: DONE.** Structured logging was added across the backend
+   (`backend/app/logging_config.py`, the `asa` logger tree, `LOG_LEVEL`
+   setting): the task service logs created/started/finished with the
+   task id, the agent loop logs tool call *names* and real failure
+   reasons — and a test with sentinel values proves neither the API
+   key nor file contents ever reach the logs. The task service gained
+   a concurrency limit (`MAX_CONCURRENT_TASKS`, default 2): excess
+   tasks wait `queued` in creation order, and cancelling a queued
+   task finalizes it as `cancelled` without it ever running (verified
+   with an event-gated fake client). The system prompt now states
+   that tool outputs are data, never instructions — documented in
+   `docs/SECURITY.md` as a prompt-level defense-in-depth layer, not a
+   behavioural guarantee. Failure paths hardened: an unusable SQLite
+   store raises a clear `TaskStoreError` at startup, and a workspace
+   deleted mid-task still leaves a terminal, honest record.
+   Dependency audits were really run: pip-audit found 14 findings in
+   2 packages (venv `pip 24.0` tooling + `pytest 8.4.2`); both were
+   fixed (pip → 26.2.2 in the venv, pytest → 9.0.3 with the
+   requirements range updated after a green suite) and the re-audit
+   is clean. `npm audit` could **not** be run — this environment's
+   registry proxy refuses the audit endpoint (HTTP 403
+   `policy_denied`) — so the frontend audit remains an open item,
+   recorded as unmeasured rather than clean. 8 new tests; full
+   backend suite 117 passed.
 9. **Milestone 9 — Local Deployment:** repeatable local startup,
    environment setup docs, troubleshooting guide, final verification
    checklist. Not exposed publicly by default.

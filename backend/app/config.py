@@ -48,6 +48,15 @@ class Settings:
     # Relative paths are resolved against the backend/ directory.
     tasks_db_path: str = "data/tasks.db"
 
+    # Task concurrency (Milestone 8): at most this many tasks run at
+    # once; further tasks stay "queued" and start in creation order
+    # as slots free up. Values below 1 are clamped to 1 by the service.
+    max_concurrent_tasks: int = 2
+
+    # Logging (Milestone 8): stdlib logging level name for the "asa"
+    # logger tree (DEBUG, INFO, WARNING, ERROR).
+    log_level: str = "INFO"
+
     # Docker sandbox policy (Milestone 3, enforced by app.sandbox.runner).
     # These are backend-side limits: the model can never override them,
     # and the runner turns them into fixed `docker run` flags.
@@ -94,6 +103,12 @@ class Settings:
                 os.environ.get("MAX_SEARCH_MATCHES", cls.max_search_matches)
             ),
             tasks_db_path=os.environ.get("TASKS_DB_PATH", cls.tasks_db_path),
+            max_concurrent_tasks=int(
+                os.environ.get(
+                    "MAX_CONCURRENT_TASKS", cls.max_concurrent_tasks
+                )
+            ),
+            log_level=os.environ.get("LOG_LEVEL", cls.log_level),
             sandbox_image=os.environ.get("SANDBOX_IMAGE", cls.sandbox_image),
             sandbox_memory=os.environ.get("SANDBOX_MEMORY", cls.sandbox_memory),
             sandbox_cpus=os.environ.get("SANDBOX_CPUS", cls.sandbox_cpus),

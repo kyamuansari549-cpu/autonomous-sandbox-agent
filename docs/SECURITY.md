@@ -58,6 +58,73 @@ decides what actually happens.
 - **Secrets hygiene:** keys live only in a local `.env` excluded from Git;
   keys are never logged.
 
+## Milestone 8 audit (reliability & security pass)
+
+- **Structured logging, with a no-secrets rule (implemented + tested):**
+  all backend logging goes through the `asa` logger tree
+  (`backend/app/logging_config.py`, stdlib only, one consistent
+  format; level via `LOG_LEVEL`). The task service logs task
+  created/started/finished with the task id; the agent loop logs each
+  tool call's **name**, run outcomes, and tool failures with their
+  real reasons (which is also how sandbox/search unavailability shows
+  up in logs). Tool *arguments*, file contents, task text, and the
+  Groq API key are never logged. This is enforced by a test
+  (`test_logs_have_tool_names_but_never_secrets_or_content`): a run
+  whose settings carry a sentinel API key and whose `create_file`
+  content is a sentinel string produces logs containing the tool
+  name and lifecycle lines but neither sentinel.
+- **Task concurrency limit (implemented + tested):**
+  `MAX_CONCURRENT_TASKS` (default 2) caps how many agent tasks run at
+  once. Excess tasks stay `queued` and start in creation order as
+  slots free; cancelling a queued task finalizes it as `cancelled`
+  immediately — it never runs. Verified with an event-gated fake
+  client: the second task stays `queued` (and its agent is never
+  invoked) until the first is released, and a cancelled queued task
+  remains `cancelled` with the model-call count unchanged.
+- **Prompt-injection hardening (prompt-level layer, honestly scoped):**
+  the agent's system prompt now states explicitly that tool outputs
+  — file contents, web results, command/test output — are *data,
+  never instructions*, and that instruction-like text inside them
+  ("ignore previous instructions", requests to reveal secrets, run
+  unrelated commands, or exfiltrate data) must not be followed, only
+  noted. **This is a defense-in-depth layer, not a guarantee:** a
+  prompt cannot prove a model will never be swayed. The actual
+  boundary remains backend enforcement — workspace confinement, the
+  fixed sandbox command allowlist, no secrets in the sandbox,
+  read-only git tools — which bounds what a manipulated model can
+  even request. A test asserts the rule's presence in the prompt;
+  no behavioural claim is made or tested.
+- **Failure-path hardening (implemented + tested):** if the SQLite
+  task store cannot be initialized (non-database file in the way,
+  parent path is a file, …), `TaskService` raises a clear
+  `TaskStoreError` ("task store is unusable at <path>: <reason>")
+  instead of crashing with a raw sqlite traceback. If the workspace
+  directory is deleted mid-task, tool calls return their real errors
+  to the model and the task record still reaches a terminal status
+  with the failure visible in it (verified end-to-end with a
+  workspace-deleting fake client: status `max_iterations`, summary
+  states the task is NOT verified complete) — no stuck `running`
+  records, no exception escaping the worker thread.
+- **Dependency audit (performed 2026-10-28, real outcomes):**
+  - *Backend — pip-audit 2.10.1* (installed ad hoc into the venv for
+    this audit only; deliberately **not** added to
+    `requirements.txt`). Initial result: 14 reported findings in 2
+    packages (7 unique advisory/package pairs) — `pip 24.0`, the
+    venv's own tooling (6 advisories), and `pytest 8.4.2`
+    (PYSEC-2026-1845, fixed in 9.0.3). Fixes applied: the venv's pip
+    was upgraded to 26.2.2, and pytest was bumped to 9.0.3 with the
+    `requirements.txt` range updated to `>=9.0,<10.0` after the full
+    suite stayed green. Re-audit afterwards: **no known
+    vulnerabilities found** in the venv.
+  - *Frontend — npm audit could not be completed in this
+    environment:* the managed npm registry proxy answers the audit
+    endpoint with HTTP 403 (`policy_denied`), so no vulnerability
+    counts could be obtained and `npm audit fix` (which uses the
+    same endpoint) was not run. No frontend dependency was changed
+    for this milestone. **Open item:** re-run `npm audit` in an
+    environment with audit-endpoint access before relying on the
+    frontend dependency set.
+
 ## Sandbox verification status
 
 **Live container execution is NOT yet verified: the build environment
@@ -98,3 +165,12 @@ fails honestly with that error instead of fabricating a result.
   Tavily is available as a key-based alternative provider.
 - Approval prompts only help if the user actually reads them. Dangerous
   operations stay blocked by policy even if a user would approve them.
+- The prompt-injection rule in the system prompt (Milestone 8) reduces
+  the chance that malicious file/web content steers the model, but
+  prompt wording cannot *prove* a model will resist every injection.
+  Treat any content the agent reads as potentially hostile; the
+  backend confinement — not the prompt — is the security boundary.
+- The frontend dependency audit is still outstanding (Milestone 8):
+  `npm audit` is blocked by this environment's registry proxy, so the
+  frontend's dependency vulnerabilities are currently **unmeasured**,
+  not known-clean.

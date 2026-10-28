@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.tasks import router as tasks_router
 from app.config import Settings, get_settings
+from app.logging_config import configure_logging
 from app.schemas import HealthResponse
 from app.services.task_service import TaskService
 
@@ -31,6 +32,7 @@ def create_app(
     from ``settings``.
     """
     settings = settings or get_settings()
+    configure_logging(settings.log_level)
     app = FastAPI(title=settings.app_name)
     app.add_middleware(
         CORSMiddleware,
