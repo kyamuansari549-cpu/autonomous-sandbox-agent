@@ -1,0 +1,12 @@
+# TODO (Milestone 9 — Local Deployment):
+# Real services are defined here at deployment time. Nothing is wired up
+# yet on purpose: Milestone 1 is foundation only, and no service should be
+# exposed before the security review in Milestone 8.
+#
+# Planned (all commented out until Milestone 9):
+# services:
+#   backend:
+#     build: ./backend
+#     # ports are bound to localhost only when this is enabled
+#     # ports:
+#     #   - "127.0.0.1:8000:8000"

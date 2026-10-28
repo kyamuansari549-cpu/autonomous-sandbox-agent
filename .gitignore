@@ -1,0 +1,15 @@
+# Secrets — never commit real credentials
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Node (frontend, Milestone 7)
+node_modules/
+
+# Agent task workspace: generated files stay local, only the placeholder is kept
+workspace/*
+!workspace/.gitkeep
