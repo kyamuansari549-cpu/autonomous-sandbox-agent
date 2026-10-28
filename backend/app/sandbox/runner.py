@@ -49,7 +49,9 @@ __all__ = [
     "SandboxResult",
     "SandboxUnavailableError",
     "build_command",
+    "run_command",
     "run_python_file",
+    "validate_command",
 ]
 
 # The sandbox user created by sandbox/Dockerfile (uid/gid 10001). Pinned
@@ -122,19 +124,13 @@ def _container_script_path(workspace: Workspace, script_relpath: str) -> str:
     return resolved.relative_to(workspace.root).as_posix()
 
 
-def build_command(
-    workspace: Workspace,
-    script_relpath: str,
-    config: SandboxConfig,
-) -> list[str]:
-    """Build the exact ``docker run`` argv for one sandboxed execution.
+def _docker_argv_prefix(workspace: Workspace, config: SandboxConfig) -> list[str]:
+    """The fixed ``docker run`` argument list, ending with the image name.
 
     Every safeguard flag is hard-coded here. The only variable parts are
     the policy values from :class:`SandboxConfig` (themselves sourced
-    from backend settings), the workspace mount, and the validated
-    script path.
+    from backend settings) and the workspace mount.
     """
-    script = _container_script_path(workspace, script_relpath)
     return [
         "docker",
         "run",
@@ -159,9 +155,85 @@ def build_command(
         "--user",
         SANDBOX_USER,
         config.image,
-        "python",
-        script,
     ]
+
+
+def build_command(
+    workspace: Workspace,
+    script_relpath: str,
+    config: SandboxConfig,
+) -> list[str]:
+    """Build the exact ``docker run`` argv for running one Python file.
+
+    The result is the fixed prefix from :func:`_docker_argv_prefix`
+    followed by ``["python", <validated script path>]``.
+    """
+    script = _container_script_path(workspace, script_relpath)
+    return _docker_argv_prefix(workspace, config) + ["python", script]
+
+
+def _container_pytest_target(workspace: Workspace, target: str) -> str:
+    """Validate a pytest target and return its in-container path form.
+
+    Unlike a script, a pytest target may be the workspace root itself
+    (returned as ``"."``), a directory, or a single test file.
+    """
+    if target in ("", "."):
+        return "."
+    resolved = workspace.resolve_path(target)
+    if resolved == workspace.root:
+        return "."
+    return resolved.relative_to(workspace.root).as_posix()
+
+
+def validate_command(workspace: Workspace, argv_tail) -> list[str]:
+    """Validate a requested command tail against the fixed allowlist.
+
+    Only two command shapes are permitted, and this function returns
+    their normalized in-container form:
+
+    * ``["python", <file.py inside the workspace>]``
+    * ``["python", "-m", "pytest", <path inside the workspace>]``
+      (the pytest path may also be ``"."`` for the whole workspace)
+
+    Everything else — another program, extra flags (a pytest target
+    starting with ``-`` included), or a path escaping the workspace —
+    raises :class:`SandboxError` (or :class:`WorkspaceError` from the
+    resolver). The model may *request* a command, but it can never
+    extend this list.
+    """
+    if not isinstance(argv_tail, (list, tuple)) or not argv_tail:
+        raise SandboxError("command must be a non-empty list of arguments")
+    argv = list(argv_tail)
+    if any(not isinstance(token, str) or token == "" for token in argv):
+        raise SandboxError("command arguments must be non-empty strings")
+    if argv[0] != "python":
+        raise SandboxError(
+            f"only 'python' commands may run in the sandbox, got {argv[0]!r}"
+        )
+    if len(argv) == 2:
+        target = argv[1]
+        if target.startswith("-"):
+            raise SandboxError(f"flags are not allowed: {target!r}")
+        script = _container_script_path(workspace, target)
+        if not script.endswith(".py"):
+            raise SandboxError(f"not a Python file: {target!r}")
+        return ["python", script]
+    if len(argv) == 4 and argv[1] == "-m" and argv[2] == "pytest":
+        target = argv[3]
+        if target.startswith("-"):
+            raise SandboxError(f"pytest flags are not allowed: {target!r}")
+        return [
+            "python",
+            "-m",
+            "pytest",
+            _container_pytest_target(workspace, target),
+        ]
+    raise SandboxError(
+        "command is not in the sandbox allowlist; only "
+        "['python', <file.py>] and ['python', '-m', 'pytest', <path>] "
+        "are permitted"
+    )
 
 
 def _as_text(value: object) -> str:
@@ -181,34 +253,20 @@ def _truncate(text: str, max_bytes: int) -> str:
     return encoded[:max_bytes].decode("utf-8", errors="replace")
 
 
-def run_python_file(
-    workspace: Workspace,
-    script_relpath: str,
-    *,
-    config: Optional[SandboxConfig] = None,
-    settings: Optional[Settings] = None,
-    runner: Optional[Runner] = None,
+def _execute(
+    argv: list[str],
+    config: SandboxConfig,
+    settings: Settings,
+    runner: Optional[Runner],
 ) -> SandboxResult:
-    """Run one workspace Python file inside the sandbox container.
+    """Hand one fully built ``docker run`` argv to the subprocess runner.
 
-    Returns a :class:`SandboxResult` with the container's real stdout,
-    stderr, and exit code (each stream truncated to
-    ``settings.max_output_bytes``). A timeout returns ``timed_out=True``
-    with ``exit_code=None`` and whatever partial output was captured.
-
-    Raises:
-        WorkspaceError: the script path escapes the workspace.
-        SandboxError: the script does not exist or is not a file.
-        SandboxUnavailableError: the ``docker`` executable is missing.
+    Shared by :func:`run_python_file` and :func:`run_command`. A missing
+    ``docker`` executable raises :class:`SandboxUnavailableError`; a
+    timeout returns a ``timed_out`` result with the partial output and
+    ``exit_code=None`` — neither outcome is ever disguised as a
+    successful run.
     """
-    settings = settings or get_settings()
-    config = config or SandboxConfig.from_settings(settings)
-    argv = build_command(workspace, script_relpath, config)
-
-    script_path = workspace.resolve_path(script_relpath)
-    if not script_path.is_file():
-        raise SandboxError(f"script does not exist: {script_relpath!r}")
-
     run = runner or subprocess.run
     started = time.monotonic()
     try:
@@ -241,3 +299,65 @@ def run_python_file(
         timed_out=False,
         duration_seconds=time.monotonic() - started,
     )
+
+
+def run_python_file(
+    workspace: Workspace,
+    script_relpath: str,
+    *,
+    config: Optional[SandboxConfig] = None,
+    settings: Optional[Settings] = None,
+    runner: Optional[Runner] = None,
+) -> SandboxResult:
+    """Run one workspace Python file inside the sandbox container.
+
+    Returns a :class:`SandboxResult` with the container's real stdout,
+    stderr, and exit code (each stream truncated to
+    ``settings.max_output_bytes``). A timeout returns ``timed_out=True``
+    with ``exit_code=None`` and whatever partial output was captured.
+
+    Raises:
+        WorkspaceError: the script path escapes the workspace.
+        SandboxError: the script does not exist or is not a file.
+        SandboxUnavailableError: the ``docker`` executable is missing.
+    """
+    settings = settings or get_settings()
+    config = config or SandboxConfig.from_settings(settings)
+    argv = build_command(workspace, script_relpath, config)
+
+    script_path = workspace.resolve_path(script_relpath)
+    if not script_path.is_file():
+        raise SandboxError(f"script does not exist: {script_relpath!r}")
+
+    return _execute(argv, config, settings, runner)
+
+
+def run_command(
+    workspace: Workspace,
+    argv_tail,
+    *,
+    config: Optional[SandboxConfig] = None,
+    settings: Optional[Settings] = None,
+    runner: Optional[Runner] = None,
+) -> SandboxResult:
+    """Run one allowlisted command inside the sandbox container.
+
+    ``argv_tail`` is validated by :func:`validate_command` first — only
+    ``["python", <file.py>]`` and ``["python", "-m", "pytest", <path>]``
+    survive — and the container receives exactly the validated tokens
+    after the fixed ``docker run`` prefix. Result, timeout, and
+    unavailable-Docker semantics match :func:`run_python_file`.
+    """
+    settings = settings or get_settings()
+    config = config or SandboxConfig.from_settings(settings)
+    container_argv = validate_command(workspace, argv_tail)
+
+    target_path = workspace.root / container_argv[-1]
+    if container_argv[1] == "-m":  # pytest: the target may be a directory
+        if not target_path.exists():
+            raise SandboxError(f"test path does not exist: {argv_tail[-1]!r}")
+    elif not target_path.is_file():
+        raise SandboxError(f"script does not exist: {argv_tail[-1]!r}")
+
+    argv = _docker_argv_prefix(workspace, config) + container_argv
+    return _execute(argv, config, settings, runner)

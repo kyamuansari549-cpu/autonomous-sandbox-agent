@@ -46,6 +46,28 @@ them**.
 5. **Milestone 5 — Autonomous Coding:** agent connected to workspace,
    execution and test tools; one complete small coding task verified end
    to end.
+   **Status: DONE (agent + execution-tool wiring verified with fake
+   model and local executor stand-in; live Docker execution + live Groq
+   still pending their hosts).** The dispatcher gained four tools —
+   `run_python_file` and `run_tests` delegating to the sandbox runner's
+   new fixed command allowlist (`validate_command`/`run_command` in
+   `backend/app/sandbox/runner.py`: only `python <file.py>` and
+   `python -m pytest <path>` survive server-side validation; flags and
+   escaping paths are refused), plus read-only `git_status`/`git_diff`
+   (fixed argv, no shell, no git write operations exist). The task
+   service (`backend/app/services/task_service.py`) runs tasks on
+   background threads with per-task cancellation and persists records
+   in SQLite; the API (`backend/app/api/tasks.py`) exposes
+   create/get/list/cancel and returns an honest 503 when the model
+   client is not configured. Verification (28 new tests, full suite 90
+   passed): a scripted fake model wrote a calculator with a deliberate
+   bug, ran the tests through an injected local executor (a test-only
+   stand-in for Docker — real pytest, real failure output), fixed the
+   bug from that feedback, and re-ran to a real pass; the same flow
+   against the real sandbox runner in this Docker-less environment
+   surfaces "execution unavailable" to the model and claims nothing.
+   NOT verified: execution inside a real container and a live Groq
+   model call — both still pending their hosts, as in Milestones 3–4.
 6. **Milestone 6 — Web Search:** separately configured search provider,
    real cited results, honest failure handling.
 7. **Milestone 7 — Frontend:** React dashboard with real task progress,

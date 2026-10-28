@@ -12,7 +12,9 @@ from app.sandbox.runner import (
     SandboxResult,
     SandboxUnavailableError,
     build_command,
+    run_command,
     run_python_file,
+    validate_command,
 )
 
 __all__ = [
@@ -21,5 +23,7 @@ __all__ = [
     "SandboxResult",
     "SandboxUnavailableError",
     "build_command",
+    "run_command",
     "run_python_file",
+    "validate_command",
 ]

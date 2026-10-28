@@ -36,6 +36,29 @@ workspace/  the only folder the agent's file tools may touch (Milestone 2)
 docs/       architecture, security, roadmap
 ```
 
+## Task service and the execution allowlist (Milestone 5)
+
+HTTP requests never run the agent loop directly. `POST /tasks` stores a
+task record in SQLite (`backend/app/services/task_service.py`) and
+starts the loop on a background thread with its own cancellation
+event; every status transition (queued → running → the loop's real
+outcome) is written back to the database, so the API reports stored
+facts, not live guesses. If the model client is not configured, task
+creation is refused with HTTP 503 before anything is stored.
+
+Execution requests are narrower than they look. The `run_python_file`
+and `run_tests` tools hand the sandbox runner an argv *tail*, and
+`validate_command` in `backend/app/sandbox/runner.py` accepts exactly
+two shapes — `python <file.py in the workspace>` and
+`python -m pytest <path in the workspace>` — after routing every path
+through the workspace resolver. There is no way for the model to add
+flags, chain commands, or name another program: anything else is a
+server-side refusal fed back to the model as a tool error. The git
+tools are narrower still: `git_status` and `git_diff` run two fixed,
+read-only argument lists in the workspace root with no shell, and no
+git write operation (commit, push, delete) exists in the tool registry
+at all.
+
 ## The agent loop's controls (Milestone 4)
 
 The loop in `backend/app/agent/loop.py` is deliberately *controlled*,

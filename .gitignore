@@ -10,6 +10,9 @@ __pycache__/
 # Node (frontend, Milestone 7)
 node_modules/
 
+# Task service database (Milestone 5) — runtime state, not source
+backend/data/
+
 # Agent task workspace: generated files stay local, only the placeholder is kept
 workspace/*
 !workspace/.gitkeep

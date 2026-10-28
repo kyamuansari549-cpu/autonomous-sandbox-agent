@@ -37,6 +37,10 @@ class Settings:
     max_list_entries: int = 500
     max_search_matches: int = 100
 
+    # Task service persistence (Milestone 5, used by app.services).
+    # Relative paths are resolved against the backend/ directory.
+    tasks_db_path: str = "data/tasks.db"
+
     # Docker sandbox policy (Milestone 3, enforced by app.sandbox.runner).
     # These are backend-side limits: the model can never override them,
     # and the runner turns them into fixed `docker run` flags.
@@ -68,6 +72,7 @@ class Settings:
             max_search_matches=int(
                 os.environ.get("MAX_SEARCH_MATCHES", cls.max_search_matches)
             ),
+            tasks_db_path=os.environ.get("TASKS_DB_PATH", cls.tasks_db_path),
             sandbox_image=os.environ.get("SANDBOX_IMAGE", cls.sandbox_image),
             sandbox_memory=os.environ.get("SANDBOX_MEMORY", cls.sandbox_memory),
             sandbox_cpus=os.environ.get("SANDBOX_CPUS", cls.sandbox_cpus),
